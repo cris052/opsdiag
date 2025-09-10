@@ -1,0 +1,85 @@
+[system]
+# 语言配置
+language = "${env:DERISK_LANG:-zh}"
+api_keys = []
+encrypt_key = "your_secret_key"
+
+# 服务器配置
+[service.web]
+host = "0.0.0.0"
+port = 8000
+# 启用MCP网关
+enable_mcp_gateway = "True"
+main_app_code = "ai_sre"
+
+# MySQL数据库配置
+[service.web.database]
+type = "mysql"
+host = "${env:MYSQL_HOST:-localhost}"
+port = "${env:MYSQL_PORT:-3306}"
+user = "${env:MYSQL_USER:-root}"
+password = "${env:MYSQL_PASSWORD:-}"
+database = "${env:MYSQL_DATABASE:-derisk}"
+charset = "utf8mb4"
+# 连接池配置
+pool_size = 10
+max_overflow = 20
+pool_timeout = 30
+pool_recycle = 3600
+
+[service.model.worker]
+host = "127.0.0.1"
+
+# RAG存储配置
+[rag.storage]
+[rag.storage.vector]
+type = "chroma"
+persist_path = "pilot/data"
+
+# MCP服务配置
+[mcp]
+# MCP服务器配置
+[[mcp.servers]]
+name = "mysql-server"
+command = "uvx"
+args = ["mcp-server-mysql"]
+env = {
+    MYSQL_HOST = "${env:MYSQL_HOST:-localhost}",
+    MYSQL_PORT = "${env:MYSQL_PORT:-3306}",
+    MYSQL_USER = "${env:MYSQL_USER:-root}",
+    MYSQL_PASSWORD = "${env:MYSQL_PASSWORD:-}",
+    MYSQL_DATABASE = "${env:MYSQL_DATABASE:-derisk}"
+}
+
+# 文件系统MCP服务器（可选）
+[[mcp.servers]]
+name = "filesystem"
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-filesystem", "./"]
+
+# 网络获取MCP服务器（可选）
+[[mcp.servers]]
+name = "fetch"
+command = "uvx"
+args = ["mcp-server-fetch"]
+
+# 模型配置
+[models]
+[[models.llms]]
+name = "deepseek-r1"
+provider = "proxy/deepseek"
+api_key = "${env:DEEPSEEK_API_KEY}"
+backend = "deepseek-reasoner"
+reasoning_model = "True"
+
+[[models.llms]]
+name = "deepseek-v3"
+provider = "proxy/deepseek"
+api_key = "${env:DEEPSEEK_API_KEY}"
+backend = "deepseek-chat"
+
+[[models.embeddings]]
+name = "BAAI/bge-large-zh-v1.5"
+provider = "proxy/openai"
+api_url = "https://api.siliconflow.cn/v1/embeddings"
+api_key = "${env:SILICONFLOW_API_KEY}"
