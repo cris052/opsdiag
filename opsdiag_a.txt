@@ -47,6 +47,7 @@ git add .
 git commit -m "commit date0910"
 git checkout -b main
 git remote add origin https://github.com/cris052/opsdiag.git   
+git remote add origin git@github.com:cris052/OpsDiag.git
 git push -u origin main 
 
 ssh-keygen -t rsa -C  "m15874949452@163.com"
