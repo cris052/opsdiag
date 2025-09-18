@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>对话流查看器 · 优化版</title>
+<style>
+  :root{
+    --bg:#ffffff; --panel:#ffffff; --muted:#5f6b7b; --text:#1c2333; --accent:#2b6cff; --ring:#a8c0ff;
+    --ok:#1f9d55; --warn:#b58900; --err:#e02424; --chip:#f3f6ff; --border:#e6e9f2; --code:#f7f9ff;
+    --think:#f2f6ff; --think-border:#c8d6ff;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);
+    color:var(--text); font:14px/1.6 "Inter",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  }
+  .app{max-width:1400px;margin:28px auto;padding:0 16px}
+  .card{background:var(--panel); border:1px solid var(--border); border-radius:16px; box-shadow:0 6px 24px rgba(0,0,0,0.06)}
+  header.card{padding:18px 20px; display:flex; gap:12px; align-items:center; justify-content:space-between}
+  h1{font-size:18px;margin:0}
+  .controls{display:flex;gap:10px;flex-wrap:wrap}
+  .chip{border:1px solid var(--border); background:var(--chip); color:var(--text); padding:6px 10px; border-radius:999px; display:inline-flex; align-items:center; gap:8px}
+  .chip input,.chip select{border:none; background:transparent; color:inherit; outline:none}
+  .chip button{all:unset; cursor:pointer; padding:2px 6px; border-radius:8px}
+  .chip button:hover{background:#eef2ff}
+  .toolbar{display:flex; gap:8px; flex-wrap:wrap}
+  .btn{border:1px solid var(--border); background:#fff; padding:8px 12px; border-radius:12px; cursor:pointer}
+  .btn:hover{border-color:var(--ring); background:#f7faff}
+  
+  /* 新的左右分栏布局 */
+  .main-grid{display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-top:16px}
+  .left-panel.card{padding:16px}
+  .right-panel.card{padding:16px}
+  
+  /* 左侧脚本生成区域样式 */
+  .script-section h2{font-size:16px; margin:0 0 12px 0; color:var(--accent); border-bottom:2px solid var(--border); padding-bottom:8px}
+  .script-item{border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:12px; background:#fff}
+  .script-item.think{background:var(--think); border:1px dashed var(--think-border)}
+  .script-item h3{margin:0 0 8px 0; font-size:14px; font-weight:600; color:var(--accent)}
+  .script-item .tags{display:flex; gap:6px; margin-bottom:8px}
+  .script-item .content{white-space:pre-wrap; word-break:break-word; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace; font-size:12.5px; background:var(--code); padding:10px; border-radius:8px; border:1px solid var(--border)}
+  
+  /* 右侧其他Agent区域样式 */
+  .other-agents h2{font-size:16px; margin:0 0 12px 0; color:var(--accent); border-bottom:2px solid var(--border); padding-bottom:8px}
+  .agent-row{display:flex; gap:12px; margin-bottom:12px; flex-wrap:wrap}
+  .agent-item{flex:1; min-width:280px; border:1px solid var(--border); border-radius:12px; padding:12px; background:#fff}
+  .agent-header{display:flex; align-items:center; gap:8px; margin-bottom:8px}
+  .agent-title{font-weight:600; font-size:14px}
+  .agent-content{font-size:13px; line-height:1.5; white-space:pre-wrap; word-break:break-word}
+  .agent-content.code{background:var(--code); padding:8px; border-radius:6px; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace; font-size:12px}
+  
+  /* 通用样式 */
+  .tag{font-size:12px; padding:2px 8px; border-radius:999px; border:1px solid var(--border); color:var(--muted); background:#fff}
+  .think-badge{background:var(--think); color:var(--accent); font-weight:600; padding:2px 6px; border-radius:4px; font-size:11px}
+  .dot{width:10px;height:10px;border-radius:50%; margin-right:6px}
+  .dot.planner{background:linear-gradient(45deg,#7dd3fc,#60a5fa)}
+  .dot.rag{background:linear-gradient(45deg,#a78bfa,#60a5fa)}
+  .dot.script{background:linear-gradient(45deg,#34d399,#10b981)}
+  .dot.sql{background:linear-gradient(45deg,#fbbf24,#ef4444)}
+  .dot.search{background:linear-gradient(45deg,#f472b6,#f59e0b)}
+  .dot.general{background:linear-gradient(45deg,#94a3b8,#64748b)}
+  
+  .footer{opacity:.7; text-align:center; padding:14px 0; font-size:12px}
+  @media (max-width:1200px){ .main-grid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="card">
+    <h1>对话流查看器 <span style="opacity:.7;font-weight:400">· 优化版 / 左右分栏 / 隐藏message_chunk</span></h1>
+    <div class="controls">
+      <span class="chip">
+        🔍
+        <input id="q" placeholder="搜索关键字（支持正则）" />
+        <button id="clear">清空</button>
+      </span>
+      <span class="chip">
+        🧠 Think显示
+        <select id="thinkMode">
+          <option value="collapsed">默认折叠</option>
+          <option value="expanded">默认展开</option>
+          <option value="hidden">隐藏</option>
+        </select>
+      </span>
+    </div>
+    <div class="toolbar">
+      <button class="btn" id="expandAll">全部展开</button>
+      <button class="btn" id="collapseAll">全部折叠</button>
+      <button class="btn" id="copyAll">复制全部内容</button>
+    </div>
+  </header>
+
+  <div class="main-grid">
+    <div class="left-panel card">
+      <div class="script-section">
+        <h2>🔧 脚本生成结果</h2>
+        <div id="scriptResults"></div>
+      </div>
+    </div>
+    
+    <div class="right-panel card">
+      <div class="other-agents">
+        <h2>🤖 其他Agent结果</h2>
+        <div id="otherResults"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">优化版界面已启用。左侧显示脚本生成结果，右侧显示其他Agent结果。</div>
+</div>
+
+<script>
+/** ========== 原始数据 ========== **/
+const rawBlocks = [
+  {
+    agent: "planner",
+    title: "规划器分析结果",
+    tags:["json","steps"],
+    body: `{"locale":"zh-CN","has_enough_context":false,"thought":"用户报告广州宿主机10.88.4.65上的虚拟机无法连接。需要收集更多上下文信息以进行彻底的故障排除。","title":"广州宿主机10.88.4.65上的虚拟机无法连接的故障排除","steps":[{"need_search":true,"title":"检索宿主机和虚拟机的网络配置和状态","description":"需要收集宿主机10.88.4.65的网络接口配置（如IP地址、子网掩码、网关、路由表）、虚拟机的网络配置（如虚拟交换机设置、IP分配、防火墙规则）、以及相关的网络状态信息（如ARP表、ICMP响应、TCP连接状态）。此外，还需检查虚拟化平台（如VMware、KVM、Hyper-V）的特定配置和日志，以确定是否存在虚拟机管理程序级别的网络问题。","step_type":"rag_retrieval","execution_res":"none"},{"need_search":false,"title":"生成脚本以收集虚拟机和宿主机的系统日志和性能指标","description":"需要生成脚本以收集宿主机和虚拟机的系统日志（如/var/log/messages、/var/log/syslog、Windows事件日志）、虚拟化平台日志（如VMware的vpxd日志、KVM的libvirt日志）、以及性能指标（如CPU、内存、磁盘I/O、网络吞吐量）。此外，还需收集虚拟机的启动日志、虚拟机管理程序的连接状态、以及可能的错误代码或异常信息。","step_type":"script_generate","execution_res":"none"}]}`
+  },
+  { agent:"rag_container", title:"RAG检索结果", tags:["rag_retrieval"], body:"需要收集宿主机与虚拟机网络配置、状态与虚拟化平台日志等，详见上一步骤说明。" },
+  { agent:"script_container", title:"脚本容器处理", tags:["script_generate"], body:"生成脚本收集系统日志、虚拟化平台日志与性能指标（CPU/内存/磁盘I/O/网络），并抓取启动日志与Hypervisor连接状态。" },
+  { agent:"script_container_sql", title:"ECS数据库查询", tags:["SQL","ECS"], body:"select * from ECS.project where project_name = %s" },
+  { agent:"script_container_sql_data", title:"ECS数据库查询结果", tags:["SQL","ECS","result"], body:`{'id': 1, 'project_name': '长春', 'bcec_group': 'harbor-sealer、k8s-master、k8s-node、nova-api、nova-compute、keystone、cinder-api、cinder-volume、glance、manila、HAproxy、amqp、bcmysql、bcmysql-manager、bcmysql-vip', 'os_group': 'basic、storage、nova-compute', 'bms_group': '', 'ansible_node': '10.88.2.9', 'log_rule': 'nova:/var/log/nova/\\ncinder:/var/log/cinder/\\n组件日志每日做一次切分，切分前格式nova-compute.log、切分后格式nova-compute.log-20250404.gz'}` },
+  { agent:"script_container_sql", title:"CMDB数据库查询", tags:["SQL","CMDB"], body:`SELECT 
+    d.\`项目名称\`,
+    d.\`子系统名称\`,
+    d.\`内存配置-总量\`,
+    d.\`内存配置-大小\`,
+    d.\`CPU配置(物理核)-数量\`,
+    d.\`网卡-配置\`,
+    d.\`管理ip\`,
+    d.\`TOR1\`,
+    d.\`TOR2\`,
+    n.\`管理ip\` AS 网络设备ip,
+    n.\`设备类型\`,
+    n.\`网络层次\`
+FROM 
+    \`device\` d
+LEFT JOIN 
+    \`network\` n
+    ON (n.\`用途描述\` = d.\`TOR1\`)
+    AND n.\`项目名称\` LIKE %s
+WHERE 
+    d.\`项目名称\` LIKE %s 
+    AND d.\`管理ip\` = %s;` },
+  { agent:"script_container_sql_data", title:"CMDB数据库查询结果", tags:["SQL","CMDB","result"], body:"（查询无返回）" },
+  { agent:"rag_container_searcher", title:"知识库检索结果", tags:["KB","排障案例"], body:`（多条长文本，节选若干重点）
+- 时钟不同步导致产品部署失败 → 建议核对 NTP（例：ntpdate -u 10.88.2.137）
+- VNC 协议配置错误（https 改为 http）导致控制台访问失败
+- Bond 子卡未识别导致网络不通 → 重启网卡/节点恢复
+- MAC 漂移因迁移动作残留 UUID → 清理残留
+- 容器侧 TCP RST → nf_conntrack_tcp_be_liberal = 1
+- 系统盘 I/O 错误导致开机卡住 → 排查宿主磁盘/更换故障盘` },
+  { agent:"script_container_script_generate", title:"思考过程", think:true, tags:["think"], body:`（内在思考）需要补充更自动化的采集脚本，覆盖连通性（ping/traceroute）、KVM/OVS 状态、路由/iptables、防火墙和服务健康，并以结构化输出；必要时使用 -b 提权。` },
+  { agent:"script_container_script_generate", title:"日志查询脚本", tags:["commands"], body:`ansible -i /apps/xunjian/work/bcec/hosts 10.88.4.65 -m shell -a "journalctl -u nova-compute --since '1 hour ago' --no-pager'"
+ansible -i /apps/xunjian/work/bcec/hosts 10.88.4.65 -m shell -a "grep -i 'error\\|fail' /var/log/neutron/*"
+ansible -i /apps/xunjian/work/bcec/hosts 10.88.4.65 -m shell -a "tail -n 150 /var/log/cinder/volume.log"
+ansible -i /apps/xunjian/work/bcec/hosts 10.88.4.65 -m shell -a "grep -i '401 Unauthorized' /var/log/keystone/keystone.log"
+ansible -i /apps/xunjian/work/bcec/hosts 10.88.4.65 -m shell -a "tail -n 100 /var/log/glance/glance-api.log"` },
+  { agent:"script_container_script_generate", title:"性能监控脚本", tags:["commands"], body:`ansible -i /apps/xunjian/work/bcec/hosts 10.88.4.65 -m shell -a "vmstat 1 2"
+ansible -i /apps/xunjian/work/bcec/hosts 10.88.4.65 -m shell -a "sar -u 1 5"
+ansible -i /apps/xunjian/work/bcec/hosts 10.88.4.65 -m shell -a "iostat -x 1 5"
+ansible -i /apps/xunjian/work/bcec/hosts 10.88.4.65 -m shell -a "nvidia-smi"  # 若为GPU节点
+ansible -i /apps/xunjian/work/bcec/hosts 10.88.4.65 -m shell -a "systemctl is-failed"` },
+  { agent:"script_container_script_generate", title:"网络拓扑查询脚本", tags:["commands"], body:`ansible -i /apps/xunjian/work/bcec/hosts 10.88.4.65 -m shell -a "openstack network list"
+ansible -i /apps/xunjian/work/bcec/hosts 10.88.4.65 -m shell -a "openstack subnet list"
+ansible -i /apps/xunjian/work/bcec/hosts 10.88.4.65 -m shell -a "ovs-ofctl dump-flows br-int"
+ansible -i /apps/xunjian/work/bcec/hosts 10.88.4.65 -m shell -a "virsh list --all"
+ansible -i /apps/xunjian/work/bcec/hosts 10.88.4.65 -m shell -a "ip netns exec qdhcp-<network-id> arp -a"` },
+  { agent:"interrupt", title:"用户输入提示", tags:["提示"], body:"输入脚本可检索数据内容!" }
+];
+
+/** ========== 数据处理与渲染 ========== **/
+const scriptResults = document.getElementById('scriptResults');
+const otherResults = document.getElementById('otherResults');
+const q = document.getElementById('q');
+const thinkMode = document.getElementById('thinkMode');
+
+// 分离script_container_script_generate和其他agent
+function processData(blocks) {
+  const scriptItems = blocks.filter(b => b.agent === 'script_container_script_generate');
+  const otherItems = blocks.filter(b => b.agent !== 'script_container_script_generate');
+  
+  return { scriptItems, otherItems };
+}
+
+function renderScriptResults(items) {
+  scriptResults.innerHTML = '';
+  
+  items.forEach((item, index) => {
+    const isThink = !!item.think || /\b<think>\b/i.test(item.title);
+    if(thinkMode.value === 'hidden' && isThink) return;
+    
+    const div = document.createElement('div');
+    div.className = 'script-item' + (isThink ? ' think' : '');
+    
+    const tags = (item.tags || []).map(t => `<span class="tag">#${t}</span>`).join('');
+    
+    div.innerHTML = `
+      <h3>${isThink ? '🧠 ' : ''}${escapeHTML(item.title)}</h3>
+      <div class="tags">${tags}</div>
+      <div class="content">${escapeHTML(item.body)}</div>
+      <div style="margin-top:8px">
+        <button class="btn" onclick="copyText(\`${item.body.replace(/`/g, '\\`')}\`)">复制内容</button>
+      </div>
+    `;
+    
+    scriptResults.appendChild(div);
+  });
+  
+  if(items.length === 0) {
+    scriptResults.innerHTML = '<div style="text-align:center;opacity:0.7;padding:20px">暂无脚本生成结果</div>';
+  }
+}
+
+function renderOtherResults(items) {
+  otherResults.innerHTML = '';
+  
+  // 按agent分组
+  const grouped = {};
+  items.forEach(item => {
+    if(!grouped[item.agent]) grouped[item.agent] = [];
+    grouped[item.agent].push(item);
+  });
+  
+  Object.entries(grouped).forEach(([agent, agentItems]) => {
+    const row = document.createElement('div');
+    row.className = 'agent-row';
+    
+    agentItems.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'agent-item';
+      
+      const tags = (item.tags || []).map(t => `<span class="tag">#${t}</span>`).join('');
+      const dotClass = getDotClass(agent);
+      const isCode = needsCode(item.body);
+      
+      div.innerHTML = `
+        <div class="agent-header">
+          <span class="dot ${dotClass}"></span>
+          <span class="agent-title">${escapeHTML(item.title)}</span>
+        </div>
+        <div class="tags" style="margin-bottom:8px">${tags}</div>
+        <div class="agent-content${isCode ? ' code' : ''}">${escapeHTML(item.body)}</div>
+        <div style="margin-top:8px">
+          <button class="btn" onclick="copyText(\`${item.body.replace(/`/g, '\\`')}\`)">复制</button>
+        </div>
+      `;
+      
+      row.appendChild(div);
+    });
+    
+    otherResults.appendChild(row);
+  });
+  
+  if(items.length === 0) {
+    otherResults.innerHTML = '<div style="text-align:center;opacity:0.7;padding:20px">暂无其他Agent结果</div>';
+  }
+}
+
+function getDotClass(agent) {
+  if(agent === 'planner') return 'planner';
+  if(agent.startsWith('rag')) return 'rag';
+  if(agent.startsWith('script_container_sql')) return 'sql';
+  if(agent.startsWith('script')) return 'script';
+  if(agent === 'interrupt') return 'search';
+  return 'general';
+}
+
+function needsCode(text) {
+  if(!text) return false;
+  return /(^\s*\{[\s\S]*\}\s*$)|(^\s*select\s+)|(^\s*ansible\s+-i\b)|(^\s*SELECT\s+)/im.test(text) || text.includes("\n");
+}
+
+function escapeHTML(s) {
+  return (s || '').replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => alert('已复制到剪贴板'));
+}
+
+function copyAllVisible() {
+  const scriptContent = [...scriptResults.querySelectorAll('.script-item .content')].map(el => el.textContent).join('\n\n---\n\n');
+  const otherContent = [...otherResults.querySelectorAll('.agent-content')].map(el => el.textContent).join('\n\n---\n\n');
+  const allContent = `=== 脚本生成结果 ===\n${scriptContent}\n\n=== 其他Agent结果 ===\n${otherContent}`;
+  copyText(allContent);
+}
+
+// 搜索功能
+function filterAndRender() {
+  let filtered = rawBlocks;
+  
+  if(q.value) {
+    try {
+      const reg = new RegExp(q.value, 'i');
+      filtered = filtered.filter(b => reg.test(b.title) || reg.test(b.body || ''));
+    } catch(e) {
+      filtered = filtered.filter(b => (b.title + b.body).includes(q.value));
+    }
+  }
+  
+  const { scriptItems, otherItems } = processData(filtered);
+  renderScriptResults(scriptItems);
+  renderOtherResults(otherItems);
+}
+
+/** ========== 初始化和事件绑定 ========== **/
+const { scriptItems, otherItems } = processData(rawBlocks);
+renderScriptResults(scriptItems);
+renderOtherResults(otherItems);
+
+// 事件绑定
+q.addEventListener('input', filterAndRender);
+document.getElementById('clear').onclick = () => { q.value = ''; filterAndRender(); };
+thinkMode.onchange = filterAndRender;
+document.getElementById('copyAll').onclick = copyAllVisible;
+
+// 展开/折叠功能（如果需要的话，这里暂时保留空实现）
+document.getElementById('expandAll').onclick = () => {};
+document.getElementById('collapseAll').onclick = () => {};
+</script>
+</body>
+</html>
