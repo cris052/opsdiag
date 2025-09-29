@@ -556,7 +556,7 @@ WHERE
     // 首次输入逻辑
     let newDiagnosisType: 'storage' | 'network' = 'storage';
     
-    if (message.includes("外网无法访问云主机")) {
+    if (message.includes("外网无法连接云主机") || message.includes("外网无法访问云主机")) {
       newDiagnosisType = 'network';
     } else if (message.includes("对象存储上传文件失败")) {
       newDiagnosisType = 'storage';
