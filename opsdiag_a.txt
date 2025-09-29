@@ -1,0 +1,54 @@
+# 使用PowerShell安装uv
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+uv sync --all-packages --frozen --extra "base" --extra "proxy_openai" --extra "rag" --extra "storage_chromadb" --extra "derisks" --extra "storage_oss2" --extra "client" --extra "ext_base" --index-url=https://pypi.tuna.tsinghua.edu.cn/simple
+
+pip install dashscope
+pip install gdown
+
+$env:DEEPSEEK_API_KEY = "sk-3450bbd0a48b46068faac84bdf90a4cc"
+$env:SILICONFLOW_API_KEY = "sk-f38534d06b7046fcbb469cf884135fbc"
+uv run python packages/opsdiag-app/src/opsdiag_app/derisk_server.py --config configs/derisk-proxy-deepseek.toml
+
+uv pip install -e packages/opsdiag-app/
+uv pip install -e packages/opsdiag-core/
+uv pip install -e packages/opsdiag-client/
+uv pip install -e packages/opsdiag-ext/
+uv pip install -e packages/opsdiag-serve/
+$env:Path = "C:\Users\86158\.local\bin;$env:Path"
+
+
+# 验证安装
+uv run python -c "from derisk._version import version; print(f'版本: {version}')"
+
+
+#清除缓存
+python scripts/clear_cache.py
+
+
+#实时调试
+cd web
+npm config set registry https://registry.npmmirror.com/
+npm config get registry     #验证当前的镜像源
+npm install
+npm run dev
+# 访问 http://localhost:3000/chat
+
+# 每次修改后都需要：
+cd web
+npm run build
+npm run export
+cd ..
+xcopy "web\out\*" "packages\opsdiag-app\src\opsdiag_app\static\web\" /E /Y /I
+# 然后访问 http://127.0.0.1:8000
+
+rm -rf .git
+git init
+git add .
+git commit -m "commit date0929"
+git checkout -b main
+git remote add origin https://github.com/cris052/opsdiag.git   
+git remote add origin git@github.com:cris052/OpsDiag.git
+git push -u origin main 
+
+ssh-keygen -t rsa -C  "m15874949452@163.com"
+cat ~/.ssh/id_rsa.pub

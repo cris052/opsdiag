@@ -1,0 +1,65 @@
+[project]
+name = "opsdiag-app"
+version = "0.7.0"
+description = "Add your description here"
+authors = [
+    { name = "csunny", email = "cfqcsunny@gmail.com" }
+]
+license = "MIT"
+readme = "README.md"
+requires-python = ">= 3.10"
+
+dependencies = [
+#    "derisk-acc-auto",
+    "opsdiag",
+    "opsdiag-ext",
+    "opsdiag-serve",
+    "opsdiag-client",
+    "aiofiles",
+    "pyparsing",
+]
+
+[project.urls]
+Homepage = "https://github.com/opsdiag-ai/opsdiag"
+Documentation = "http://docs.opsdiag.ai/docs/overview"
+Repository = "https://github.com/opsdiag-ai/opsdiag.git"
+Issues = "https://github.com/opsdiag-ai/opsdiag/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.optional-dependencies]
+cache = [
+    "rocksdict",
+]
+
+observability = [
+    "opentelemetry-api",
+    "opentelemetry-sdk",
+    "opentelemetry-exporter-otlp",
+]
+base = [
+    "opsdiag[client,cli,agent,simple_framework,framework,code]"
+]
+derisks = [
+    # For build derisks apps, we will be removed in the future.
+    "build",
+    "poetry"
+]
+
+[tool.uv]
+managed = true
+dev-dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/opsdiag_app"]
+exclude = [
+    "src/opsdiag_app/**/tests",
+    "src/opsdiag_app/**/tests/*",
+    "src/opsdiag_app/tests",
+    "src/opsdiag_app/tests/*",
+    "src/opsdiag_app/**/examples",
+    "src/opsdiag_app/**/examples/*"
+]
+

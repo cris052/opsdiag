@@ -1,0 +1,43 @@
+[project]
+name = "opsdiag-serve"
+version = "0.7.0"
+description = "Add your description here"
+authors = [
+    { name = "csunny", email = "cfqcsunny@gmail.com" }
+]
+license = "MIT"
+readme = "README.md"
+requires-python = ">= 3.10"
+
+dependencies = [
+    "opsdiag>=0.7.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/opsdiag-ai/opsdiag"
+Documentation = "http://docs.opsdiag.ai/docs/overview"
+Repository = "https://github.com/opsdiag-ai/opsdiag.git"
+Issues = "https://github.com/opsdiag-ai/opsdiag/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+managed = true
+dev-dependencies = []
+
+[project.optional-dependencies]
+libro = ["libro>=0.1.25"]
+derisks = ["poetry"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/opsdiag_serve"]
+exclude = [
+    "src/opsdiag_serve/**/tests",
+    "src/opsdiag_serve/**/tests/*",
+    "src/opsdiag_serve/tests",
+    "src/opsdiag_serve/tests/*",
+    "src/opsdiag_serve/**/examples",
+    "src/opsdiag_serve/**/examples/*"
+]
